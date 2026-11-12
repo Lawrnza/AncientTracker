@@ -1,0 +1,31 @@
+{
+	"schemaVersion": 1,
+	"id": "ancient-tracker",
+	"version": "${version}",
+	"name": "Ancient Tracker",
+	"description": "Dungeon Loot & Profit Tracker for the last 1 hour.",
+	"authors": [
+		"Me!"
+	],
+	"license": "CC0-1.0",
+	"icon": "assets/ancient-tracker/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.tracker.dungeonloot.client.AncientTrackerClient"
+		]
+	},
+	"mixins": [
+		"ancient-tracker.mixins.json",
+		{
+			"config": "ancient-tracker.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
