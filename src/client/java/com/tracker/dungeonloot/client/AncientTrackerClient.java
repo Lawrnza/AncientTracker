@@ -250,7 +250,7 @@ PlayerTeam team = sb.getPlayersTeam(holder.getScoreboardName());
 String fullLine = PlayerTeam.formatNameForTeam(team, Component.literal(holder.getScoreboardName())).getString();
 String clean = fullLine.replaceAll("§[0-9a-fk-or]", "").trim();
 if (clean.toLowerCase().contains("credits:")) {
-Matcher m = Pattern.compile("([0-9]+(?:\.[0-9]+)?)").matcher(clean);
+Matcher m = Pattern.compile("([0-9]+(?:\\.[0-9]+)?)").matcher(clean);
 if (m.find()) {
 return Double.parseDouble(m.group(1));
 }
