@@ -19,7 +19,6 @@ import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.ScoreHolder;
 import net.minecraft.world.scores.Scoreboard;
-import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
 import java.io.FileReader;
@@ -40,13 +39,6 @@ public class AncientTrackerClient implements ClientModInitializer {
     private static long runStartTime = 0L;
     private static long lastDungeonFinishTime = 0L;
     private static double lastScoreboardCredits = -1.0;
-
-    private static int resetBtnLeft = 0;
-    private static int resetBtnTop = 0;
-    private static int resetBtnRight = 0;
-    private static int resetBtnBottom = 0;
-    private static long confirmResetTimestamp = 0L;
-    private static boolean wasMouseDown = false;
 
     public static class TrackerData {
         public int completed = 0;
@@ -82,30 +74,6 @@ public class AncientTrackerClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.level == null) return;
-
-            if (client.screen != null) {
-                long window = client.getWindow().handle();
-                boolean isMouseDown = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-
-                if (isMouseDown && !wasMouseDown) {
-                    double mouseX = client.mouseHandler.xpos() * (double) client.getWindow().getGuiScaledWidth() / (double) client.getWindow().getScreenWidth();
-                    double mouseY = client.mouseHandler.ypos() * (double) client.getWindow().getGuiScaledHeight() / (double) client.getWindow().getScreenHeight();
-
-                    if (mouseX >= resetBtnLeft && mouseX <= resetBtnRight && mouseY >= resetBtnTop && mouseY <= resetBtnBottom) {
-                        long now = System.currentTimeMillis();
-                        if (now - confirmResetTimestamp < 5000L) {
-                            resetAllStats();
-                            confirmResetTimestamp = 0L;
-                            client.player.sendSystemMessage(Component.literal("§a[Ancient Tracker] Статистиката беше нулирана!"));
-                        } else {
-                            confirmResetTimestamp = now;
-                        }
-                    }
-                }
-                wasMouseDown = isMouseDown;
-            } else {
-                wasMouseDown = false;
-            }
 
             double currentCredits = readScoreboardCredits(client);
             if (currentCredits >= 0) {
@@ -189,10 +157,7 @@ public class AncientTrackerClient implements ClientModInitializer {
 
                 double totalProfit = calculateTotalProfit();
                 lines.add("§a§lProfit: §2$§a" + formatMoney(totalProfit));
-
-                boolean isConfirming = (System.currentTimeMillis() - confirmResetTimestamp) < 5000L;
-                String resetText = isConfirming ? "§e§l[Click again to confirm!]" : "§c[Reset Tracker]";
-                lines.add(resetText);
+                lines.add("§7Reset: §c/tracker reset");
 
                 int x = 6;
                 int y = 6;
@@ -220,14 +185,7 @@ public class AncientTrackerClient implements ClientModInitializer {
                 context.fill(boxRight - 1, boxTop, boxRight, boxBottom, borderColor);
 
                 int currentY = y;
-                for (int i = 0; i < lines.size(); i++) {
-                    String line = lines.get(i);
-                    if (i == lines.size() - 1) {
-                        resetBtnLeft = x - 2;
-                        resetBtnTop = currentY - 1;
-                        resetBtnRight = x + client.font.width(line) + 2;
-                        resetBtnBottom = currentY + lineHeight;
-                    }
+                for (String line : lines) {
                     context.text(client.font, line, x, currentY, 0xFFFFFFFF, true);
                     currentY += lineHeight;
                 }
