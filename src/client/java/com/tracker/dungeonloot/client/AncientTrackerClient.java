@@ -6,6 +6,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
@@ -33,8 +34,6 @@ public class AncientTrackerClient implements ClientModInitializer {
         public int dungeonsSinceCredit = 0;
         public int dungeonsSinceHaunted = 0;
         public Map<String, Integer> drops = new LinkedHashMap<>();
-        
-        // Цени на предметите (можеш да ги променяш директно в config/ancient_tracker.json)
         public Map<String, Double> prices = new LinkedHashMap<>();
 
         public TrackerData() {
@@ -93,10 +92,10 @@ public class AncientTrackerClient implements ClientModInitializer {
             checkDrop(raw, lower, "secret", "SECRET Drop");
         });
 
-        // Рисуване на панела горе вляво
+        // Рисуване на панела горе вляво (26.2 API)
         HudElementRegistry.addLast(
             Identifier.fromNamespaceAndPath("ancient-tracker", "dungeon_hud"),
-            (GuiGraphicsExtractor context, float tickDelta) -> {
+            (GuiGraphicsExtractor context, DeltaTracker tickCounter) -> {
                 Minecraft client = Minecraft.getInstance();
                 if (client.player == null) return;
 
@@ -105,40 +104,40 @@ public class AncientTrackerClient implements ClientModInitializer {
                 int lineHeight = 10;
 
                 // Заглавие
-                context.drawString(client.font, "§6§lAncient Sands Dungeon Tracker", x, y, 0xFFFFFFFF, true);
+                context.text(client.font, "§6§lAncient Sands Dungeon Tracker", x, y, 0xFFFFFFFF, true);
                 y += lineHeight;
 
                 // Основни статистики
-                context.drawString(client.font, "§fCompleted: §e" + data.completed, x, y, 0xFFFFFFFF, true);
+                context.text(client.font, "§fCompleted: §e" + data.completed, x, y, 0xFFFFFFFF, true);
                 y += lineHeight;
 
                 String creditsText = (data.credits % 1 == 0) ? String.valueOf((int) data.credits) : String.format("%.1f", data.credits);
-                context.drawString(client.font, "§fCredits: §e" + creditsText, x, y, 0xFFFFFFFF, true);
+                context.text(client.font, "§fCredits: §e" + creditsText, x, y, 0xFFFFFFFF, true);
                 y += lineHeight;
 
-                context.drawString(client.font, "§fBest Time: §a" + formatDuration(data.bestTimeSeconds), x, y, 0xFFFFFFFF, true);
+                context.text(client.font, "§fBest Time: §a" + formatDuration(data.bestTimeSeconds), x, y, 0xFFFFFFFF, true);
                 y += lineHeight;
 
-                context.drawString(client.font, "§fLast Time: §7" + formatDuration(data.lastTimeSeconds), x, y, 0xFFFFFFFF, true);
+                context.text(client.font, "§fLast Time: §7" + formatDuration(data.lastTimeSeconds), x, y, 0xFFFFFFFF, true);
                 y += lineHeight;
 
                 // Дропове с цветове
                 for (Map.Entry<String, Integer> entry : data.drops.entrySet()) {
                     String coloredName = getColoredDropName(entry.getKey());
-                    context.drawString(client.font, coloredName + "§f: §e" + entry.getValue(), x, y, 0xFFFFFFFF, true);
+                    context.text(client.font, coloredName + "§f: §e" + entry.getValue(), x, y, 0xFFFFFFFF, true);
                     y += lineHeight;
                 }
 
                 // Броячи от последния дроп на капсули
-                context.drawString(client.font, "§fDungeons since last §eCredit Capsule§f: §6" + data.dungeonsSinceCredit, x, y, 0xFFFFFFFF, true);
+                context.text(client.font, "§fDungeons since last §eCredit Capsule§f: §6" + data.dungeonsSinceCredit, x, y, 0xFFFFFFFF, true);
                 y += lineHeight;
 
-                context.drawString(client.font, "§fDungeons since last §dHaunted Capsule§f: §6" + data.dungeonsSinceHaunted, x, y, 0xFFFFFFFF, true);
+                context.text(client.font, "§fDungeons since last §dHaunted Capsule§f: §6" + data.dungeonsSinceHaunted, x, y, 0xFFFFFFFF, true);
                 y += lineHeight + 2;
 
                 // Обща печалба (Profit) най-долу
                 double totalProfit = calculateTotalProfit();
-                context.drawString(client.font, "§a§lProfit: §2$§a" + formatMoney(totalProfit), x, y, 0xFFFFFFFF, true);
+                context.text(client.font, "§a§lProfit: §2$§a" + formatMoney(totalProfit), x, y, 0xFFFFFFFF, true);
             }
         );
     }
