@@ -98,16 +98,18 @@ public class AncientTrackerClient implements ClientModInitializer {
             }
         });
 
-        ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-            ScreenMouseEvents.afterMouseClick(screen).register((scr, mouseX, mouseY, button) -> {
-                if (button == 0) {
+                ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            ScreenMouseEvents.afterMouseClick(screen).register((scr, click) -> {
+                if (click.button() == 0) {
+                    double mouseX = click.x();
+                    double mouseY = click.y();
                     if (mouseX >= resetBtnLeft && mouseX <= resetBtnRight && mouseY >= resetBtnTop && mouseY <= resetBtnBottom) {
                         long now = System.currentTimeMillis();
                         if (now - confirmResetTimestamp < 5000L) {
                             resetAllStats();
                             confirmResetTimestamp = 0L;
-                            if (client.gui != null) {
-                                client.gui.getChat().addMessage(Component.literal("§a[Ancient Tracker] Статистиката беше нулирана!"));
+                            if (client.player != null) {
+                                client.player.sendSystemMessage(Component.literal("§a[Ancient Tracker] Статистиката беше нулирана!"));
                             }
                         } else {
                             confirmResetTimestamp = now;
@@ -118,6 +120,7 @@ public class AncientTrackerClient implements ClientModInitializer {
                 return false;
             });
         });
+
 
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             String raw = message.getString().replaceAll("§[0-9a-fk-or]", "").trim();
