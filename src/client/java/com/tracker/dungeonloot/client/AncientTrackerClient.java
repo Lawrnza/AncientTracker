@@ -14,7 +14,9 @@ import net.minecraft.resources.Identifier;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,12 +39,9 @@ public class AncientTrackerClient implements ClientModInitializer {
         public Map<String, Double> prices = new LinkedHashMap<>();
 
         public TrackerData() {
-            prices.put("Credit Capsule", 1000000.0);
-            prices.put("Haunted Capsule", 2500000.0);
-            prices.put("6-STAR CAPSULE", 500000.0);
-            prices.put("5-STAR CAPSULE", 150000.0);
-            prices.put("DIVINE Drop", 50000.0);
-            prices.put("SECRET Drop", 25000.0);
+            prices.put("CREDIT CAPSULE", 23000000.0);
+            prices.put("HAUNTED CAPSULE", 35000000.0);
+            prices.put("6-STAR CAPSULE", 2500000.0);
         }
     }
 
@@ -55,13 +54,13 @@ public class AncientTrackerClient implements ClientModInitializer {
             String lower = raw.toLowerCase();
 
             // 1. Засичане на старт на дънджън
-            if (lower.contains("ancient sands") && (lower.contains("started") || lower.contains("entered") || lower.contains("започна"))) {
+            if (lower.contains("ancient sands") && (lower.contains("started") || lower.contains("entered") || lower.contains("wave 1"))) {
                 runStartTime = System.currentTimeMillis();
             }
 
             // 2. Засичане на завършен дънджън (Completed)
             if ((lower.contains("dungeon") || lower.contains("ancient sands")) && 
-                (lower.contains("completed") || lower.contains("complete") || lower.contains("finished") || lower.contains("завършен"))) {
+                (lower.contains("completed") || lower.contains("complete") || lower.contains("finished"))) {
                 
                 data.completed++;
                 data.credits += 0.5;
@@ -83,72 +82,87 @@ public class AncientTrackerClient implements ClientModInitializer {
                 saveData();
             }
 
-            // 3. Засичане и stack-ване на дроповете
-            checkDrop(raw, lower, "credit capsule", "Credit Capsule");
-            checkDrop(raw, lower, "haunted capsule", "Haunted Capsule");
+            // 3. Засичане и stack-ване само на 3-те основни капсули
+            checkDrop(raw, lower, "credit capsule", "CREDIT CAPSULE");
+            checkDrop(raw, lower, "haunted capsule", "HAUNTED CAPSULE");
             checkDrop(raw, lower, "6-star capsule", "6-STAR CAPSULE");
-            checkDrop(raw, lower, "5-star capsule", "5-STAR CAPSULE");
-            checkDrop(raw, lower, "divine", "DIVINE Drop");
-            checkDrop(raw, lower, "secret", "SECRET Drop");
         });
 
-        // Рисуване на панела горе вляво (26.2 API)
+        // Рисуване на панела с полупрозрачна черна рамка горе вляво
         HudElementRegistry.addLast(
             Identifier.fromNamespaceAndPath("ancient-tracker", "dungeon_hud"),
             (GuiGraphicsExtractor context, DeltaTracker tickCounter) -> {
                 Minecraft client = Minecraft.getInstance();
                 if (client.player == null) return;
 
-                int x = 6;
-                int y = 6;
-                int lineHeight = 10;
-
-                // Заглавие
-                context.text(client.font, "§6§lAncient Sands Dungeon Tracker", x, y, 0xFFFFFFFF, true);
-                y += lineHeight;
-
-                // Основни статистики
-                context.text(client.font, "§fCompleted: §e" + data.completed, x, y, 0xFFFFFFFF, true);
-                y += lineHeight;
+                List<String> lines = new ArrayList<>();
+                lines.add("§6§lAncient Sands Dungeon Tracker");
+                lines.add("§fCompleted: §e" + data.completed);
 
                 String creditsText = (data.credits % 1 == 0) ? String.valueOf((int) data.credits) : String.format("%.1f", data.credits);
-                context.text(client.font, "§fCredits: §e" + creditsText, x, y, 0xFFFFFFFF, true);
-                y += lineHeight;
+                lines.add("§fCredits: §e" + creditsText);
+                lines.add("§fBest Time: §a" + formatDuration(data.bestTimeSeconds));
+                lines.add("§fLast Time: §7" + formatDuration(data.lastTimeSeconds));
 
-                context.text(client.font, "§fBest Time: §a" + formatDuration(data.bestTimeSeconds), x, y, 0xFFFFFFFF, true);
-                y += lineHeight;
-
-                context.text(client.font, "§fLast Time: §7" + formatDuration(data.lastTimeSeconds), x, y, 0xFFFFFFFF, true);
-                y += lineHeight;
-
-                // Дропове с цветове
+                // Дропове с точните им цветове и имена
                 for (Map.Entry<String, Integer> entry : data.drops.entrySet()) {
                     String coloredName = getColoredDropName(entry.getKey());
-                    context.text(client.font, coloredName + "§f: §e" + entry.getValue(), x, y, 0xFFFFFFFF, true);
-                    y += lineHeight;
+                    lines.add(coloredName + "§f: §e" + entry.getValue());
                 }
 
-                // Броячи от последния дроп на капсули
-                context.text(client.font, "§fDungeons since last §eCredit Capsule§f: §6" + data.dungeonsSinceCredit, x, y, 0xFFFFFFFF, true);
-                y += lineHeight;
+                lines.add("§fDungeons since last §bCREDIT CAPSULE§f: §6" + data.dungeonsSinceCredit);
+                lines.add("§fDungeons since last §dHAUNTED CAPSULE§f: §6" + data.dungeonsSinceHaunted);
 
-                context.text(client.font, "§fDungeons since last §dHaunted Capsule§f: §6" + data.dungeonsSinceHaunted, x, y, 0xFFFFFFFF, true);
-                y += lineHeight + 2;
-
-                // Обща печалба (Profit) най-долу
                 double totalProfit = calculateTotalProfit();
-                context.text(client.font, "§a§lProfit: §2$§a" + formatMoney(totalProfit), x, y, 0xFFFFFFFF, true);
+                lines.add("§a§lProfit: §2$§a" + formatMoney(totalProfit));
+
+                // Изчисляваме размерите на рамката според най-дългия ред
+                int x = 6;
+                int y = 6;
+                int padding = 5;
+                int lineHeight = 11;
+                int maxWidth = 0;
+
+                for (String line : lines) {
+                    int w = client.font.width(line);
+                    if (w > maxWidth) {
+                        maxWidth = w;
+                    }
+                }
+
+                int boxLeft = x - padding;
+                int boxTop = y - padding;
+                int boxRight = x + maxWidth + padding;
+                int boxBottom = y + (lines.size() * lineHeight) + padding - 2;
+
+                // Полупрозрачен черен фон (0xAA000000)
+                context.fill(boxLeft, boxTop, boxRight, boxBottom, 0xAA000000);
+
+                // Тънка златиста/тъмносива рамка (1px от всички страни)
+                int borderColor = 0xFF555555;
+                context.fill(boxLeft, boxTop, boxRight, boxTop + 1, borderColor); // Горе
+                context.fill(boxLeft, boxBottom - 1, boxRight, boxBottom, borderColor); // Долу
+                context.fill(boxLeft, boxTop, boxLeft + 1, boxBottom, borderColor); // Ляво
+                context.fill(boxRight - 1, boxTop, boxRight, boxBottom, borderColor); // Дясно
+
+                // Изписваме редовете вътре в рамката
+                int currentY = y;
+                for (String line : lines) {
+                    context.text(client.font, line, x, currentY, 0xFFFFFFFF, true);
+                    currentY += lineHeight;
+                }
             }
         );
     }
 
     private void checkDrop(String raw, String lower, String keyword, String cleanKey) {
-        if (lower.contains(keyword) && !raw.contains(":")) {
+        // Игнорираме съобщения от играчи в чата (които съдържат двуеточие или @)
+        if (lower.contains(keyword) && !raw.contains(":") && !raw.contains("@")) {
             data.drops.put(cleanKey, data.drops.getOrDefault(cleanKey, 0) + 1);
 
-            if (cleanKey.equals("Credit Capsule")) {
+            if (cleanKey.equals("CREDIT CAPSULE")) {
                 data.dungeonsSinceCredit = 0;
-            } else if (cleanKey.equals("Haunted Capsule")) {
+            } else if (cleanKey.equals("HAUNTED CAPSULE")) {
                 data.dungeonsSinceHaunted = 0;
             }
             saveData();
@@ -166,12 +180,9 @@ public class AncientTrackerClient implements ClientModInitializer {
 
     private String getColoredDropName(String key) {
         return switch (key) {
-            case "Credit Capsule" -> "§eCredit Capsule";
-            case "Haunted Capsule" -> "§dHaunted Capsule";
-            case "6-STAR CAPSULE" -> "§66-STAR CAPSULE";
-            case "5-STAR CAPSULE" -> "§a5-STAR CAPSULE";
-            case "DIVINE Drop" -> "§bDIVINE Drop";
-            case "SECRET Drop" -> "§cSECRET Drop";
+            case "CREDIT CAPSULE" -> "§bCREDIT CAPSULE";
+            case "HAUNTED CAPSULE" -> "§dHAUNTED CAPSULE";
+            case "6-STAR CAPSULE" -> "§66-STAR CAPSULE ☆☆☆☆☆☆";
             default -> "§f" + key;
         };
     }
