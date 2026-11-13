@@ -8,8 +8,6 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -21,6 +19,7 @@ import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.ScoreHolder;
 import net.minecraft.world.scores.Scoreboard;
+import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
 import java.io.FileReader;
@@ -47,6 +46,7 @@ public class AncientTrackerClient implements ClientModInitializer {
     private static int resetBtnRight = 0;
     private static int resetBtnBottom = 0;
     private static long confirmResetTimestamp = 0L;
+    private static boolean wasMouseDown = false;
 
     public static class TrackerData {
         public int completed = 0;
@@ -83,6 +83,30 @@ public class AncientTrackerClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.level == null) return;
 
+            if (client.screen != null) {
+                long window = client.getWindow().handle();
+                boolean isMouseDown = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+
+                if (isMouseDown && !wasMouseDown) {
+                    double mouseX = client.mouseHandler.xpos() * (double) client.getWindow().getGuiScaledWidth() / (double) client.getWindow().getScreenWidth();
+                    double mouseY = client.mouseHandler.ypos() * (double) client.getWindow().getGuiScaledHeight() / (double) client.getWindow().getScreenHeight();
+
+                    if (mouseX >= resetBtnLeft && mouseX <= resetBtnRight && mouseY >= resetBtnTop && mouseY <= resetBtnBottom) {
+                        long now = System.currentTimeMillis();
+                        if (now - confirmResetTimestamp < 5000L) {
+                            resetAllStats();
+                            confirmResetTimestamp = 0L;
+                            client.player.sendSystemMessage(Component.literal("§a[Ancient Tracker] Статистиката беше нулирана!"));
+                        } else {
+                            confirmResetTimestamp = now;
+                        }
+                    }
+                }
+                wasMouseDown = isMouseDown;
+            } else {
+                wasMouseDown = false;
+            }
+
             double currentCredits = readScoreboardCredits(client);
             if (currentCredits >= 0) {
                 if (lastScoreboardCredits >= 0) {
@@ -97,30 +121,6 @@ public class AncientTrackerClient implements ClientModInitializer {
                 lastScoreboardCredits = currentCredits;
             }
         });
-
-                ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-            ScreenMouseEvents.afterMouseClick(screen).register((scr, click) -> {
-                if (click.button() == 0) {
-                    double mouseX = click.x();
-                    double mouseY = click.y();
-                    if (mouseX >= resetBtnLeft && mouseX <= resetBtnRight && mouseY >= resetBtnTop && mouseY <= resetBtnBottom) {
-                        long now = System.currentTimeMillis();
-                        if (now - confirmResetTimestamp < 5000L) {
-                            resetAllStats();
-                            confirmResetTimestamp = 0L;
-                            if (client.player != null) {
-                                client.player.sendSystemMessage(Component.literal("§a[Ancient Tracker] Статистиката беше нулирана!"));
-                            }
-                        } else {
-                            confirmResetTimestamp = now;
-                        }
-                        return true;
-                    }
-                }
-                return false;
-            });
-        });
-
 
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             String raw = message.getString().replaceAll("§[0-9a-fk-or]", "").trim();
