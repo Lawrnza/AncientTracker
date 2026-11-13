@@ -2,21 +2,22 @@ package com.tracker.dungeonloot.client;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class DungeonLootTrackerClient implements ClientModInitializer {
+public class AncientTrackerClient implements ClientModInitializer {
 
     private static final List<DropEntry> DROPS = new ArrayList<>();
     private static final long ONE_HOUR_MS = 3600000L;
 
     // КЛЮЧОВИ ДУМИ В ЧАТА (Промени ги според сървъра ти!)
     private static final String[] TRIGGER_WORDS = {
-        "drop", "дроп", "получихте", "намерихте", "you found", "loot"
+        "ancient", "drop", "дроп", "получихте", "намерихте", "you found", "loot"
     };
 
     private static class DropEntry {
@@ -31,6 +32,7 @@ public class DungeonLootTrackerClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        // 1. Слушаме чата за дропове
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             String rawText = message.getString();
             String lowerText = rawText.toLowerCase();
@@ -43,44 +45,49 @@ public class DungeonLootTrackerClient implements ClientModInitializer {
             }
         });
 
-        HudRenderCallback.EVENT.register((GuiGraphics context, float tickDelta) -> {
-            Minecraft client = Minecraft.getInstance();
-            if (client.player == null || DROPS.isEmpty()) return;
+        // 2. Рисуваме панела отстрани на екрана (Новия HUD API за 26.2)
+        HudElementRegistry.addLast(
+            Identifier.fromNamespaceAndPath("ancient-tracker", "loot_hud"),
+            (GuiGraphicsExtractor context, float tickDelta) -> {
+                Minecraft client = Minecraft.getInstance();
+                if (client.player == null || DROPS.isEmpty()) return;
 
-            long now = System.currentTimeMillis();
+                long now = System.currentTimeMillis();
 
-            Iterator<DropEntry> it = DROPS.iterator();
-            while (it.hasNext()) {
-                if (now - it.next().timestamp > ONE_HOUR_MS) {
-                    it.remove();
+                // Премахваме предмети по-стари от 1 час
+                Iterator<DropEntry> it = DROPS.iterator();
+                while (it.hasNext()) {
+                    if (now - it.next().timestamp > ONE_HOUR_MS) {
+                        it.remove();
+                    }
+                }
+
+                if (DROPS.isEmpty()) return;
+
+                int x = 10;
+                int y = 40;
+
+                context.drawString(client.font, "§6§l[Ancient Tracker - 1ч] §f(" + DROPS.size() + ")", x, y, 0xFFFFFFFF, true);
+                y += 14;
+
+                int shown = 0;
+                for (DropEntry entry : DROPS) {
+                    if (shown >= 12) break;
+
+                    long diffSeconds = (now - entry.timestamp) / 1000;
+                    String timeAgo = formatTime(diffSeconds);
+
+                    String displayItem = entry.itemName.length() > 35 
+                        ? entry.itemName.substring(0, 35) + "..." 
+                        : entry.itemName;
+
+                    String line = "§a+ " + displayItem + " §7(" + timeAgo + ")";
+                    context.drawString(client.font, line, x, y, 0xFFFFFFFF, true);
+                    y += 11;
+                    shown++;
                 }
             }
-
-            if (DROPS.isEmpty()) return;
-
-            int x = 10;
-            int y = 40;
-
-            context.drawString(client.font, "§6§l[Loot Tracker - 1ч] §f(" + DROPS.size() + ")", x, y, 0xFFFFFF, true);
-            y += 14;
-
-            int shown = 0;
-            for (DropEntry entry : DROPS) {
-                if (shown >= 12) break;
-
-                long diffSeconds = (now - entry.timestamp) / 1000;
-                String timeAgo = formatTime(diffSeconds);
-
-                String displayItem = entry.itemName.length() > 35 
-                    ? entry.itemName.substring(0, 35) + "..." 
-                    : entry.itemName;
-
-                String line = "§a+ " + displayItem + " §7(" + timeAgo + ")";
-                context.drawString(client.font, line, x, y, 0xFFFFFF, true);
-                y += 11;
-                shown++;
-            }
-        });
+        );
     }
 
     private String formatTime(long totalSeconds) {
