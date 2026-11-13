@@ -52,9 +52,10 @@ public class AncientTrackerClient implements ClientModInitializer {
         public Map<String, Double> prices = new LinkedHashMap<>();
 
         public TrackerData() {
-            prices.put("CREDIT CAPSULE", 23000000.0);
-            prices.put("HAUNTED CAPSULE", 35000000.0);
-            prices.put("6-STAR CAPSULE", 2500000.0);
+            prices.put("CREDIT CAPSULE", 20000000.0);
+            prices.put("HAUNTED CAPSULE", 25000000.0);
+            prices.put("6-STAR CAPSULE", 1100000.0);
+
         }
     }
 
@@ -193,18 +194,22 @@ public class AncientTrackerClient implements ClientModInitializer {
         );
     }
 
-    private double readScoreboardCredits(Minecraft client) {
+        private double readScoreboardCredits(Minecraft client) {
         try {
             Scoreboard sb = client.level.getScoreboard();
             Objective obj = sb.getDisplayObjective(DisplaySlot.SIDEBAR);
             if (obj == null) return -1.0;
 
             for (ScoreHolder holder : sb.getTrackedPlayers()) {
+                if (sb.getPlayerScoreInfo(holder, obj) == null) continue;
+
                 PlayerTeam team = sb.getPlayersTeam(holder.getScoreboardName());
-                String fullLine = PlayerTeam.formatNameForTeam(team, Component.literal(holder.getScoreboardName())).getString();
-                String clean = fullLine.replaceAll("§[0-9a-fk-or]", "").trim();
-                if (clean.toLowerCase().contains("credits:")) {
-                    Matcher m = Pattern.compile("([0-9]+(?:\\.[0-9]+)?)").matcher(clean);
+                String prefix = (team != null) ? team.getPlayerPrefix().getString() : "";
+                String suffix = (team != null) ? team.getPlayerSuffix().getString() : "";
+                String fullLine = (prefix + holder.getScoreboardName() + suffix).replaceAll("§[0-9a-fk-or]", "").trim();
+
+                if (fullLine.toLowerCase().contains("credits:")) {
+                    Matcher m = Pattern.compile("([0-9]+(?:\\.[0-9]+)?)").matcher(fullLine);
                     if (m.find()) {
                         return Double.parseDouble(m.group(1));
                     }
@@ -253,12 +258,14 @@ public class AncientTrackerClient implements ClientModInitializer {
         };
     }
 
-    private String formatMoney(double amount) {
-        if (amount >= 1_000_000_000) return String.format("%.2fB", amount / 1_000_000_000.0);
-        if (amount >= 1_000_000) return String.format("%.2fM", amount / 1_000_000.0);
-        if (amount >= 1_000) return String.format("%.1fK", amount / 1_000.0);
-        return String.format("%.0f", amount);
-    }
+    private String getColoredDropName(String key) {
+    return switch (key) {
+        case "CREDIT CAPSULE" -> "§b§lCREDIT CAPSULE";
+        case "HAUNTED CAPSULE" -> "§d§lHAUNTED CAPSULE";
+        case "6-STAR CAPSULE" -> "§f§l6-STAR CAPSULE §7☆☆☆☆☆☆";
+        default -> "§f§l" + key;
+    };
+}
 
     private String formatDuration(long totalSeconds) {
         if (totalSeconds < 0) return "N/A";
